@@ -5,17 +5,22 @@
 #define MAX_LENGTH 100
 char buffer[MAX_LENGTH];
 
+typedef struct Car{
+    unsigned int range, amount;
+    struct Car *left;
+    struct Car *right;
+} Car;
+
 typedef struct Station{
-    unsigned int distance, *cars;
+    unsigned int distance;
+    Car* cars;
     struct Station* left;
     struct Station* right;
 } Station;
 Station* stationsTreeRoot = NULL;
 
 Station* removeStation(Station* root, int distance);
-void insertStation(Station **root, int distance, int* cars);
-Station* findMin(Station* node);
-int highwayContains(Station*, int distance);
+void insertStation(Station **root, Station *newStation);
 
 //Returns 1 if line starts with pattern, false otherwise.
 int startsWith(char* line, char* pattern){
@@ -23,13 +28,7 @@ int startsWith(char* line, char* pattern){
 }
 
 /**********   binary tree stuff    **********/
-void insertStation(Station **root, int distance, int* cars){
-    Station* newStation = (Station*) malloc(sizeof(Station));
-    newStation -> distance = distance;
-    newStation -> cars = cars;
-    newStation -> left = NULL;
-    newStation -> right = NULL;
-
+void insertStation(Station **root, Station *newStation){
     if (*root == NULL){
         *root = newStation;
         printf("NULL\n");
@@ -39,21 +38,21 @@ void insertStation(Station **root, int distance, int* cars){
 
         while (curr != NULL) {
             parent = curr;
-            if (distance < curr->distance) {
+            if (newStation -> distance < curr->distance) {
                 curr = curr->left;
             } else {
                 curr = curr->right;
             }
         }
 
-        if (distance < parent->distance) {
+        if (newStation -> distance < parent->distance) {
             parent->left = newStation;
         } else {
             parent->right = newStation;
         }
     }
 }
-Station* findMin(Station* node) {
+Station* findMinStation(Station* node) {
     while (node->left != NULL) {
         node = node->left;
     }
@@ -61,7 +60,7 @@ Station* findMin(Station* node) {
 }
 Station* removeStation(Station* root, int distance){
     if (root == NULL) {
-        return root;
+        return root;  // Tree is empty or value not found
     }
 
     if (distance < root->distance) {
@@ -69,53 +68,131 @@ Station* removeStation(Station* root, int distance){
     } else if (distance > root->distance) {
         root->right = removeStation(root->right, distance);
     } else {
-        if (root->left == NULL) {
-            Station* temp = root->right;
+        printf("root 3: %d", root -> distance);
+        // Node to be deleted is found
+        // Case 1: Node has no children (leaf node)
+        if (root->left == NULL && root->right == NULL) {
             free(root);
-            return temp;
-        } else if (root->right == NULL) {
-            Station* temp = root->left;
-            free(root);
-            return temp;
+            root = NULL;
         }
-
-        Station* temp = findMin(root->right);
-        root->distance = temp->distance;
-        root->right = removeStation(root->right, temp->distance);
+        // Case 2: Node has one child
+        else if (root->left == NULL) {
+            Station* temp = root;
+            root = root->right;
+            free(temp);
+        } else if (root->right == NULL) {
+            Station* temp = root;
+            root = root->left;
+            free(temp);
+        }
+        // Case 3: Node has two children
+        else {
+            Station* temp = findMinStation(root->right);
+            root->distance = temp->distance;
+            root->right = removeStation(root->right, temp->distance);
+        }
     }
+    if (root -> distance == stationsTreeRoot -> distance) return NULL; // hot fix
     return root;
 }
-int highwayContains(Station* root, int distance){
-    if (root == NULL) {
-        return 0;  // value not found, return 0
+Station* findStation(Station* root, int distance) {
+    if (root == NULL || root->distance == distance) {
+        return root;
     }
 
-    if (root->distance == distance) {
-        return 1;  // value found, return 1
-    } else if (distance < root->distance) {
-        return highwayContains(root->left, distance);  // Search in the left subtree
+    if (distance < root->distance) {
+        return findStation(root->left, distance);
     } else {
-        return highwayContains(root->right, distance);  // Search in the right subtree
+        return findStation(root->right, distance);
     }
 }
-void printTree(Station* root, int depth){
-    while (root -> left != NULL) {
-        root = root-> left;
-        depth++;
+
+void addCarToStation(Car** carsRoot, int range){
+    if (*carsRoot == NULL){
+        *carsRoot = (Car*) malloc(sizeof(Car));
+        (*carsRoot) -> range = range;
+    }else {
+        Car* curr = *carsRoot;
+        Car* parent = NULL;
+
+        while (curr != NULL) {
+            parent = curr;
+            if (range < curr->range) {
+                curr = curr->left;
+            } else if (range == curr -> range){     // if exact range already present, increase count and return
+                curr -> amount++;
+                return;
+            } else {
+                curr = curr->right;
+            }
+        }
+
+        if (range < parent->range) {
+            parent -> left = (Car*) malloc(sizeof(Car));
+            parent -> left -> range = range;
+        } else {
+            parent -> right = (Car*) malloc(sizeof(Car));
+            parent -> right -> range = range;
+        }
     }
-    char** lines = (char**)malloc(depth * sizeof(char*));
-    for (int i = 0; i < depth; i++){
-        lines[i] = root->distance;  // Assuming 'data' is a char* containing the line of the tree node
-        root = root->right;  
+}
+Car* findCar(Car* cars, int range){
+     if (cars == NULL || cars->range == range) {
+        return cars;
     }
 
-     for (int i = 0; i < depth; i++){
-        printf("%s", lines[i]);
-     }
+    if (range < cars->range) {
+        return findCar(cars->left, range);
+    } else {
+        return findCar(cars->right, range);
+    }
+}
+Car* findMinCar(Car* cars){
+    while (cars->left != NULL) {
+        cars = cars->left;
+    }
+    return cars;
+}
+Car* removeCar(Car* root, int range){
+    if (root == NULL) {
+        return root;  // Tree is empty or value not found
+    }
+
+    if (range < root->range) {
+        root->left = removeCar(root->left, range);
+    } else if (range > root->range) {
+        root->right = removeCar(root->right, range);
+    } else {
+        // Node to be deleted is found
+
+        // Case 1: Node has no children (leaf node)
+        if (root->left == NULL && root->right == NULL) {
+            free(root);
+            root = NULL;
+        }
+        // Case 2: Node has one child
+        else if (root->left == NULL) {
+            Car* temp = root;
+            root = root->right;
+            free(temp);
+        } else if (root->right == NULL) {
+            Car* temp = root;
+            root = root->left;
+            free(temp);
+        }
+        // Case 3: Node has two children
+        else {
+            Car* temp = findMinCar(root->right);
+            root->range = temp->range;
+            root->right = removeCar(root->right, temp->range);
+        }
+    }
+
+    return root;
 }
 /**********   end binary tree stuff    **********/
 
-//Reads aggiungi-stazione command.
+//Reads aggiungi-stazione command. Adds station to Stations tree if not present.
 //Expected format: "aggiungi-stazione km numOfCars kmCar1 kmCar2 ... kmCarnumOfCars - 1", where 
 //km, numOfCars and kmCarI are all space separated ints
 void addStation(){
@@ -129,7 +206,7 @@ void addStation(){
     carDistance = (int*)malloc(numOfCars * sizeof(int));
 
     //if station already present, do nothing
-    if (highwayContains(&stationsTreeRoot, km)) {
+    if (findStation(stationsTreeRoot, km) != NULL){
         printf("non aggiunta\n");
         return;
     }
@@ -143,43 +220,140 @@ void addStation(){
 
     //read the car milages (in kms :P)
     string += i;    //set string pointer to the third int
+    int range;
+    Car* carsRoot = (Car*) malloc(sizeof(Car));
     for (i = 0; i < numOfCars; i++){
-        sscanf(string, "%d", carDistance + i);
+        sscanf(string, "%d", &range);
+        addCarToStation(&carsRoot, range);
         while (*string != ' ') string++;       // move to next int
         string++;                              // move *string from ' ' -> '5'
     }
 
-    printf("km: %d\n", km);
-    for (i = 0; i < numOfCars; i++){
-        printf("Car %d: distance = %d\n", i, carDistance[i]);
-    }
-    insertStation(&stationsTreeRoot, km ,carDistance);
+    Station* newStation = (Station*) malloc(sizeof(Station));
+    newStation -> distance = km;
+    newStation -> cars = carsRoot;
+    newStation -> left = NULL;
+    newStation -> right = NULL;
+    insertStation(&stationsTreeRoot, newStation);
     printf("aggiunta\n");
-    printTree(stationsTreeRoot, 0);
 }
 void demStation(){
-    //printf("non demolita");
-    printf("demolita\n");
+    int distance;
+    sscanf(buffer, "demolisci-stazione %d", &distance);
+    Station* s = removeStation(stationsTreeRoot, distance);
+    if (s == NULL)
+        printf("non demolita\n");
+    else printf("demolita\n");
 }
 void addCar(){
-    printf("aggiunta car\n");
+    int distance, range;
+    sscanf(buffer, "aggiungi-auto %d %d", &distance, &range);
+    printf("Range: %d, distance: %d", range, distance);
+    Station* station = findStation(stationsTreeRoot, range);
+    if (station != NULL){
+        addCarToStation(&(station -> cars), range);
+        printf("aggiunta\n");
+    } else
+        printf("non aggiunta\n");
 }
 void demCar(){
-    printf("rottamata\n");
+    int distance, range;
+    sscanf(buffer, "rottama-auto %d %d", &distance, &range);
+    Station* s = findStation(stationsTreeRoot, distance);
+    Car* car;
+    if (s != NULL){
+        if (car != NULL){
+            addCarToStation(&(s -> cars), range);
+            printf("rottamata\n");
+        }
+    } else{
+        printf("non rottamata\n");
+    }
 }
 void planRoute(){
-    printf("plantroute\n");
+    printf("plan route\n");
 }
 
+int _print_t(Station *tree, int is_left, int offset, int depth, char s[20][255])
+{
+    char b[20];
+    int width = 5;
+
+    if (!tree) return 0;
+
+    sprintf(b, "(%03d)", tree->distance);
+
+    int left  = _print_t(tree->left,  1, offset,                depth + 1, s);
+    int right = _print_t(tree->right, 0, offset + left + width, depth + 1, s);
+
+#ifdef COMPACT
+    for (int i = 0; i < width; i++)
+        s[depth][offset + left + i] = b[i];
+
+    if (depth && is_left) {
+
+        for (int i = 0; i < width + right; i++)
+            s[depth - 1][offset + left + width/2 + i] = '-';
+
+        s[depth - 1][offset + left + width/2] = '.';
+
+    } else if (depth && !is_left) {
+
+        for (int i = 0; i < left + width; i++)
+            s[depth - 1][offset - width/2 + i] = '-';
+
+        s[depth - 1][offset + left + width/2] = '.';
+    }
+#else
+    for (int i = 0; i < width; i++)
+        s[2 * depth][offset + left + i] = b[i];
+
+    if (depth && is_left) {
+
+        for (int i = 0; i < width + right; i++)
+            s[2 * depth - 1][offset + left + width/2 + i] = '-';
+
+        s[2 * depth - 1][offset + left + width/2] = '+';
+        s[2 * depth - 1][offset + left + width + right + width/2] = '+';
+
+    } else if (depth && !is_left) {
+
+        for (int i = 0; i < left + width; i++)
+            s[2 * depth - 1][offset - width/2 + i] = '-';
+
+        s[2 * depth - 1][offset + left + width/2] = '+';
+        s[2 * depth - 1][offset - width/2 - 1] = '+';
+    }
+#endif
+
+    return left + width + right;
+}
+
+void print_t(Station *tree)
+{
+    char s[20][255];
+    for (int i = 0; i < 20; i++)
+        sprintf(s[i], "%80s", " ");
+
+    _print_t(tree, 0, 0, 0, s);
+
+    for (int i = 0; i < 20; i++)
+        printf("%s\n", s[i]);
+}
 int main() {    
     // Read a line from standard input
     while (fgets(buffer, sizeof(buffer), stdin) != NULL) {
-        if (startsWith(buffer, "aggiungi-stazione")) addStation();
-        if (startsWith(buffer, "demolisci-stazione")) demStation();
+        if (startsWith(buffer, "aggiungi-stazione")) {
+            addStation();
+            print_t(stationsTreeRoot);
+        }
+        if (startsWith(buffer, "demolisci-stazione")){
+         demStation();
+         print_t(stationsTreeRoot);
+        }   
         if (startsWith(buffer, "aggiungi-auto")) addCar();
         if (startsWith(buffer, "rottama-auto")) demCar();
         if (startsWith(buffer, "pianifica-percorso")) planRoute();
     }
-    printTree(stationsTreeRoot, 0);
     return 0;
 }

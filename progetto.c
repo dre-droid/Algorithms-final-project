@@ -67,25 +67,31 @@ Station* removeStation(Station* root, int distance){
 
     // branch left
     if (distance < root->distance) {
+        if (distance == 4827) printf("1\n");
         root -> left = removeStation(root->left, distance);
         // branch right
     } else if (distance > root->distance) {
+        if (distance == 4827) printf("2\n");
         root -> right = removeStation(root->right, distance);
         // found node to be removed
     } else {
+        if (distance == 4827) printf("3\n");
         removedStation = root -> distance;
         //printf("root found: %d", root -> distance);
         // Case 1: Node has no children (leaf node)
         if (root->left == NULL && root->right == NULL) {
+            if (root -> distance == 4827) printf("4\n");
             free(root);
             return NULL;
         }
             // Case 2: Node has one child
         else if (root->left == NULL) {
+            if (root -> distance == 4827) printf("5\n");
             Station* temp = root -> right;
             free(root);
             return temp;
         } else if (root->right == NULL) {
+            if (root -> distance == 4827) printf("6\n");
             Station* temp = root -> left;
             free(root);
             return temp;
@@ -103,7 +109,7 @@ Station* removeStation(Station* root, int distance){
         root -> distance = curr->distance;
         root -> cars = curr -> cars;
         if (parent == root)     // if parent and curr dont move, root -> right is the min of the right branch
-            root -> right = NULL;
+            parent -> right = curr -> right;
         else{
             parent -> left = curr -> right;
         }
@@ -237,11 +243,11 @@ Car* removeCar(Car* root, int range){
 /**********      pinafica percorso stuff     **************/
 void printAllNodes(Station* root){
     if(root) {
-        //store current root value
-        printf("%d, ", root -> distance);
-        
         //store the left subtree
         printAllNodes(root->left);
+
+        //store current root value
+        printf("%d, ", root -> distance);
         
         //store the right subtree
         printAllNodes(root->right);
@@ -610,6 +616,8 @@ int main() {
             //print_t(stationsTreeRoot);
         }
         if (startsWith(buffer, "demolisci-stazione")){
+            //printAllNodes(stationsTreeRoot);
+            //print_t(findStation(stationsTreeRoot, 4827));
             demStation();
             //print_t(stationsTreeRoot);
         }

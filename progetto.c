@@ -2,12 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LENGTH 5000
+#define MAX_LENGTH 10000
 char buffer[MAX_LENGTH];
 int stationsCounter = 0;
 int removedStation = -1;
 int removedCar = -1;
 int ind;
+
+typedef struct ResultIndex{
+    int stationIndex, resultIndex;
+} ResultIndex;
 
 typedef struct StationAndRange {
     int distance;
@@ -67,31 +71,25 @@ Station* removeStation(Station* root, int distance){
 
     // branch left
     if (distance < root->distance) {
-        if (distance == 4827) printf("1\n");
         root -> left = removeStation(root->left, distance);
         // branch right
     } else if (distance > root->distance) {
-        if (distance == 4827) printf("2\n");
         root -> right = removeStation(root->right, distance);
         // found node to be removed
     } else {
-        if (distance == 4827) printf("3\n");
         removedStation = root -> distance;
         //printf("root found: %d", root -> distance);
         // Case 1: Node has no children (leaf node)
         if (root->left == NULL && root->right == NULL) {
-            if (root -> distance == 4827) printf("4\n");
             free(root);
             return NULL;
         }
             // Case 2: Node has one child
         else if (root->left == NULL) {
-            if (root -> distance == 4827) printf("5\n");
             Station* temp = root -> right;
             free(root);
             return temp;
         } else if (root->right == NULL) {
-            if (root -> distance == 4827) printf("6\n");
             Station* temp = root -> left;
             free(root);
             return temp;
@@ -145,6 +143,7 @@ void addCarToCars(Car** carsRoot, Car* car){
                 curr = curr->right;
             } else{     // if exact range already present, increase count and return
                 curr -> amount++;
+                free(car);
                 return;
             }
         }
@@ -230,7 +229,7 @@ Car* removeCar(Car* root, int range){
         root -> range = curr -> range;
         root -> amount = curr -> amount;
         if (parent == root)     // if parent and curr dont move, root -> right is the min of the right branch
-            root -> right = NULL;
+            root -> right = curr -> right;
         else{
             parent -> left = curr -> right;
         }
@@ -320,7 +319,7 @@ int getClosestStation(StationAndRange* arr, int top, int key){
 }
 
 /* Returns the last station before the finish station if a valid route exists, -1 otherwise */
-int findNextStation(StationAndRange* arr, int start, int finish){
+int findNextStation(StationAndRange* arr, int start, int finish, ResultIndex* resultStations, int resultCounter){
     // printf("START: %d, %d. - FINISH: %d. - IND: %d - ARRAY IM WORKING WITH: \n", start, 6969, finish, ind);
     // for (int i = 0; i < ind; i++)
     //     if (arr[i].distance != 0) 
@@ -376,7 +375,8 @@ int findNextStation(StationAndRange* arr, int start, int finish){
             }
         }
         // if no reachable station found, return -1
-        if (result == -1) return -1;    
+        if (result == -1) return -1;   
+        resultStations[resultCounter].resultIndex = result;  
         // else pick the one among the reachable ones that allows to reach the furthest station
         // next step: if tie, select closest to km0
 
@@ -387,11 +387,12 @@ int findNextStation(StationAndRange* arr, int start, int finish){
         ind--;
         while (ind >= result){
             int s = getClosestStation(arr, result, arr[ind].distance - arr[ind].range);
-            //printf("s: %d\n", s);
-            if (s <= minNextStation || minNextStation == -1){
+            if ((s != -1 && s <= minNextStation) || minNextStation == -1){
                 minNextStation = s;
                 minStation = arr[ind];
+                resultStations[resultCounter].stationIndex = ind;
             }
+            //printf("arr[ind]: %d, s: %d, minNextStation: %d, result: %d\n", arr[ind].distance, s, minNextStation, result);
             ind--;
         }
         ind++;
@@ -399,9 +400,6 @@ int findNextStation(StationAndRange* arr, int start, int finish){
     }
 }
 /**********************************************************/
-//Reads aggiungi-stazione command. Adds station to Stations tree if not present.
-//Expected format: "aggiungi-stazione km numOfCars kmCar1 kmCar2 ... kmCarnumOfCars - 1", where
-//km, numOfCars and kmCarI are all space separated ints
 void addStation(){
     int km, numOfCars, range;
     Car* carsRoot = NULL;
@@ -425,12 +423,10 @@ void addStation(){
         }
 
         //read the car milages (in kms :P)
-        char *string = (char*) malloc(numOfCars * sizeof(char) * 10);
-        //printf("%s\n", buffer);
+        char *string = (char*) malloc(numOfCars * sizeof(char) * 15);
+        char *stringPointer = string;
         strcpy(string, buffer);
         string += i;    //set string pointer to the third int
-        //printf("%s\n", string);
-        //printf("\n");
         for (i = 0; i < numOfCars; i++){
             int shift = 0;
             if (sscanf(string, "%d%n", &range, &shift) != 1) {
@@ -444,9 +440,8 @@ void addStation(){
             car -> right = NULL;
             addCarToCars(&carsRoot, car);
             string += shift;
-            //while (*string != ' ') string++;       // move to next int
-            //string++;                              // move *string from ' ' -> '5'
         }
+        free(stringPointer);
     }
     Station* newStation = (Station*) malloc(sizeof(Station));
     newStation -> distance = km;
@@ -500,7 +495,7 @@ void demCar(){
 }
 void planRoute(){
     int start, finish, finnish, resultCounter = 0;
-    int *stations = (int*) malloc(sizeof(int) * (stationsCounter));
+    ResultIndex *stations = (ResultIndex*) malloc(sizeof(ResultIndex) * (stationsCounter));
     ind = 0;
 
     sscanf(buffer, "pianifica-percorso %d %d", &start, &finish);
@@ -510,101 +505,48 @@ void planRoute(){
     if (start <= finish){
         insertionSort(arr);    // sort by distance + range
         while (start < finish){
-            finish = findNextStation(arr, start, finish);
+            finish = findNextStation(arr, start, finish, NULL, 0);
             if (finish == -1) {
                 printf("nessun percorso\n");
                 return;
             }
-            stations[resultCounter] = finish;
+            stations[resultCounter].stationIndex = finish;
             resultCounter++;
         }
         for (int j = 0; j < resultCounter; j++)
-            printf("%d ", stations[resultCounter - j - 1]);
+            printf("%d ", stations[resultCounter - j - 1].stationIndex);
         printf("%d", finnish);
     } else {
         while (start > finish){
-            start = findNextStation(arr, start, finish);
+            start = findNextStation(arr, start, finish, stations, resultCounter);
             if (start == -1) {
                 printf("nessun percorso\n");
                 return;
             }
-            stations[resultCounter] = start;
             resultCounter++;
+        }
+        stations[resultCounter].stationIndex = 0;
+        for (int i = resultCounter - 1; i >= 0; i--){
+            int j = stations[i].stationIndex; //arr index of result
+            j--;
+            //printf("First found station: %d, array[i+1]: %d\n", arr[j].distance, arr[stations[i+1].stationIndex].distance);
+            while (j >= stations[i].resultIndex){
+                //printf("arr[j]: %d, arr[j].key: %d, yes/no: %d\n", arr[j].distance, arr[j].distance - arr[j].range, arr[j].distance - arr[j].range <= arr[stations[i+1].stationIndex].distance);
+                if (arr[j].distance - arr[j].range <= arr[stations[i+1].stationIndex].distance)
+                    stations[i].stationIndex = j;
+                j--;
+            }
+            // printf("new Res: %d", arr[stations[i].stationIndex].distance);
+            // printf("\n");
         }
         printf("%d ", finnish);
         for (int j = 0; j < resultCounter; j++)
-            printf("%d ", stations[j]);
+            printf("%d ", arr[stations[j].stationIndex].distance);
     }
     printf("\n");
     //deallocare array
     free(arr);
     free(stations);
-}
-
-int _print_t(Station *tree, int is_left, int offset, int depth, char s[20][255])
-{
-    char b[20];
-    int width = 5;
-
-    if (!tree) return 0;
-
-    sprintf(b, "(%03d)", tree->distance);
-
-    int left  = _print_t(tree->left,  1, offset,                depth + 1, s);
-    int right = _print_t(tree->right, 0, offset + left + width, depth + 1, s);
-
-#ifdef COMPACT
-    for (int i = 0; i < width; i++)
-        s[depth][offset + left + i] = b[i];
-
-    if (depth && is_left) {
-
-        for (int i = 0; i < width + right; i++)
-            s[depth - 1][offset + left + width/2 + i] = '-';
-
-        s[depth - 1][offset + left + width/2] = '.';
-
-    } else if (depth && !is_left) {
-
-        for (int i = 0; i < left + width; i++)
-            s[depth - 1][offset - width/2 + i] = '-';
-
-        s[depth - 1][offset + left + width/2] = '.';
-    }
-#else
-    for (int i = 0; i < width; i++)
-        s[2 * depth][offset + left + i] = b[i];
-
-    if (depth && is_left) {
-
-        for (int i = 0; i < width + right; i++)
-            s[2 * depth - 1][offset + left + width/2 + i] = '-';
-
-        s[2 * depth - 1][offset + left + width/2] = '+';
-        s[2 * depth - 1][offset + left + width + right + width/2] = '+';
-
-    } else if (depth && !is_left) {
-
-        for (int i = 0; i < left + width; i++)
-            s[2 * depth - 1][offset - width/2 + i] = '-';
-
-        s[2 * depth - 1][offset + left + width/2] = '+';
-        s[2 * depth - 1][offset - width/2 - 1] = '+';
-    }
-#endif
-
-    return left + width + right;
-}
-void print_t(Station *tree)
-{
-    char s[20][255];
-    for (int i = 0; i < 20; i++)
-        sprintf(s[i], "%80s", " ");
-
-    _print_t(tree, 0, 0, 0, s);
-
-    for (int i = 0; i < 20; i++)
-        printf("%s\n", s[i]);
 }
 
 int main() {

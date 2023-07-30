@@ -34,6 +34,7 @@ Station* stationsTreeRoot = NULL;
 
 Station* removeStation(Station* root, int distance);
 void insertStation(Station **root, Station *newStation);
+void freeCarsTree(Car* root);
 
 //Returns 1 if line starts with pattern, false otherwise.
 int startsWith(char* line, char* pattern){
@@ -81,16 +82,19 @@ Station* removeStation(Station* root, int distance){
         //printf("root found: %d", root -> distance);
         // Case 1: Node has no children (leaf node)
         if (root->left == NULL && root->right == NULL) {
+            freeCarsTree(root -> cars);
             free(root);
             return NULL;
         }
             // Case 2: Node has one child
         else if (root->left == NULL) {
             Station* temp = root -> right;
+            freeCarsTree(root -> cars);
             free(root);
             return temp;
         } else if (root->right == NULL) {
             Station* temp = root -> left;
+            freeCarsTree(root -> cars);
             free(root);
             return temp;
         }
@@ -104,6 +108,7 @@ Station* removeStation(Station* root, int distance){
             else                                        //afterwards, go left (find min)
                 parent = parent -> left;
         }
+        freeCarsTree(root -> cars);
         root -> distance = curr->distance;
         root -> cars = curr -> cars;
         if (parent == root)     // if parent and curr dont move, root -> right is the min of the right branch
@@ -125,6 +130,15 @@ Station* findStation(Station* root, int distance) {
         return findStation(root->left, distance);
     } else {
         return findStation(root->right, distance);
+    }
+}
+
+void freeStationsTree(Station* root){
+    if (root){
+        freeStationsTree(root -> left);
+        freeStationsTree(root -> right);
+        freeCarsTree(root -> cars);
+        free(root);
     }
 }
 
@@ -237,6 +251,21 @@ Car* removeCar(Car* root, int range){
     }
     return root;
 }
+
+void freeCarsTree(Car* root){
+    if (root){
+        freeCarsTree(root -> left);
+        freeCarsTree(root -> right);
+        free(root);
+    }
+}
+
+//  LEAK SUMMARY:
+//==4873==    definitely lost: 3,504 bytes in 146 blocks
+//==4873==    indirectly lost: 269,952 bytes in 11,248 blocks
+//==4873==      possibly lost: 0 bytes in 0 blocks
+//==4873==    still reachable: 2,027,232 bytes in 84,137 blocks
+
 /**********   end binary tree stuff    **********/
 
 /**********      pinafica percorso stuff     **************/
@@ -508,6 +537,8 @@ void planRoute(){
             finish = findNextStation(arr, start, finish, NULL, 0);
             if (finish == -1) {
                 printf("nessun percorso\n");
+                free(arr);
+                free(stations);
                 return;
             }
             stations[resultCounter].stationIndex = finish;
@@ -521,6 +552,8 @@ void planRoute(){
             start = findNextStation(arr, start, finish, stations, resultCounter);
             if (start == -1) {
                 printf("nessun percorso\n");
+                free(arr);
+                free(stations);
                 return;
             }
             resultCounter++;
@@ -570,7 +603,7 @@ int main() {
             //printAllNodes(stationsTreeRoot);
             planRoute();
         }
-
     }
+    freeStationsTree(stationsTreeRoot);
     return 0;
 }

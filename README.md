@@ -72,3 +72,5 @@ aggiunta
 aggiunta
 24 52 91 92
 ```
+# Results
+I implemented both the highway and its stations as trees, which turned to be a good choice in terms of memory usage and time efficiency when search was needed in the path finding funciton. The main idea for the algorithm was to do a backward search starting at the destination at going back towards the start: this allowed a near-linear pass through the stations array which met both the minimum station and first closest to start requirements. The project scored the maxium 30L/30.
